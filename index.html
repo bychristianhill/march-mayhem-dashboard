@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>March Mayhem — Live Standings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E13; --panel:#141A22; --panel-2:#1B232E; --line:#2A3340;
+    --text:#EAF0F7; --muted:#8593A4; --dim:#5C6878;
+    --dallas:#3B82F6; --houston:#FF4438; --austin:#2ED47A; --rltns:#F4B526;
+    --display:'Saira Condensed', 'Arial Narrow', sans-serif;
+    --body:'Inter', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--body);
+    line-height:1.45; min-height:100vh;
+    background-image:radial-gradient(1200px 500px at 80% -10%, rgba(59,130,246,.06), transparent 60%),
+                     radial-gradient(900px 500px at 0% 0%, rgba(255,68,56,.05), transparent 55%);
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:22px 18px 60px}
+
+  /* Topbar */
+  .topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:22px}
+  .brand h1{font-family:var(--display);font-weight:800;font-size:clamp(34px,7vw,58px);
+    letter-spacing:.5px;line-height:.9;text-transform:uppercase}
+  .brand h1 .em{color:var(--houston)}
+  .brand .sub{color:var(--muted);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;margin-top:7px}
+  .status{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .live{display:flex;align-items:center;gap:7px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--austin);box-shadow:0 0 0 0 rgba(46,212,122,.6);animation:pulse 2s infinite}
+  .dot.stale{background:var(--dim);animation:none;box-shadow:none}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(46,212,122,.55)}70%{box-shadow:0 0 0 9px rgba(46,212,122,0)}100%{box-shadow:0 0 0 0 rgba(46,212,122,0)}}
+  .updated{font-size:12px;color:var(--dim)}
+  .refresh{font-family:var(--body);font-size:12.5px;font-weight:600;letter-spacing:.04em;color:var(--text);
+    background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;transition:.15s}
+  .refresh:hover{border-color:#3a4658;background:#222b37}
+  .refresh:active{transform:translateY(1px)}
+  .refresh:disabled{opacity:.5;cursor:default}
+
+  /* Section heading */
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin:30px 0 14px}
+  .sec-head h2{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.06em;text-transform:uppercase}
+  .sec-head .note{color:var(--dim);font-size:12px;letter-spacing:.02em}
+
+  /* Office race — the timing tower */
+  .tower{display:flex;flex-direction:column;gap:8px}
+  .lane{position:relative;display:grid;grid-template-columns:46px 1fr auto;align-items:center;gap:14px;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow:hidden}
+  .lane .pos{font-family:var(--display);font-weight:800;font-size:30px;color:var(--dim);text-align:center;line-height:1}
+  .lane.p1 .pos{color:var(--text)}
+  .lane .rail{position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--c)}
+  .lane .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg, color-mix(in srgb, var(--c) 22%, transparent), transparent);
+    transition:width 1s cubic-bezier(.22,1,.36,1)}
+  .lane .body{position:relative;z-index:1;min-width:0}
+  .lane .oname{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.04em;text-transform:uppercase}
+  .lane .ometa{color:var(--muted);font-size:12px;margin-top:2px}
+  .lane .oscore{position:relative;z-index:1;text-align:right}
+  .lane .oscore .pts{font-family:var(--display);font-weight:800;font-size:34px;line-height:.9;font-variant-numeric:tabular-nums}
+  .lane .oscore .lbl{color:var(--dim);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase}
+
+  /* Tabs */
+  .tabs{display:flex;gap:6px;margin:34px 0 16px;border-bottom:1px solid var(--line)}
+  .tab{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--dim);background:none;border:none;padding:8px 4px;margin-right:18px;cursor:pointer;position:relative;transition:.15s}
+  .tab:hover{color:var(--muted)}
+  .tab.on{color:var(--text)}
+  .tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--text)}
+
+  /* Controls */
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .search{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);border-radius:9px;
+    padding:10px 13px;color:var(--text);font-family:var(--body);font-size:14px}
+  .search::placeholder{color:var(--dim)}
+  .search:focus{outline:none;border-color:#3a4658}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--muted);background:var(--panel);
+    border:1px solid var(--line);border-radius:20px;padding:7px 13px;cursor:pointer;transition:.15s}
+  .chip:hover{border-color:#3a4658}
+  .chip.on{color:#0B0E13;background:var(--text);border-color:var(--text)}
+  .chip[data-office] .pd{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
+
+  /* Podium */
+  .podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:10px;align-items:end;margin-bottom:18px}
+  .pod{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 14px;text-align:center;position:relative;overflow:hidden}
+  .pod .crown{font-family:var(--display);font-weight:800;font-size:13px;letter-spacing:.14em;color:var(--dim)}
+  .pod.first{padding-top:24px;padding-bottom:24px;border-color:color-mix(in srgb,var(--rltns) 40%, var(--line))}
+  .pod.first .crown{color:var(--rltns)}
+  .pod .nm{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.02em;margin:8px 0 2px;line-height:1.05}
+  .pod.first .nm{font-size:22px}
+  .pod .tm{color:var(--muted);font-size:11.5px;margin-bottom:10px}
+  .pod .pts{font-family:var(--display);font-weight:800;font-size:32px;font-variant-numeric:tabular-nums;line-height:.9}
+  .pod.first .pts{font-size:42px}
+  .pod .pts small{font-size:13px;color:var(--dim);font-weight:600;letter-spacing:.1em;margin-left:4px}
+  .pod .rail{position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--c)}
+
+  /* Lists */
+  .list{display:flex;flex-direction:column;gap:6px}
+  .row{display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:14px;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 14px;position:relative;overflow:hidden}
+  .row .rk{font-family:var(--display);font-weight:700;font-size:18px;color:var(--dim);text-align:center;font-variant-numeric:tabular-nums}
+  .row .rail{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c)}
+  .row .info{min-width:0}
+  .row .nm{font-weight:600;font-size:15px;letter-spacing:.01em}
+  .row .meta{color:var(--muted);font-size:12px;margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .row .meta .od{width:7px;height:7px;border-radius:50%;background:var(--c);display:inline-block}
+  .row .deals{color:var(--dim);font-size:11.5px}
+  .row .sc{text-align:right;display:flex;align-items:baseline;gap:5px}
+  .row .sc .pts{font-family:var(--display);font-weight:800;font-size:24px;font-variant-numeric:tabular-nums;line-height:1}
+  .row .sc .u{color:var(--dim);font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+
+  /* Team rows */
+  .trow{cursor:pointer}
+  .trow .nm .car{display:inline-block;color:var(--dim);transition:transform .2s;margin-left:6px;font-size:11px}
+  .trow.open .nm .car{transform:rotate(90deg)}
+  .members{display:none;flex-direction:column;gap:1px;margin:-2px 0 8px;padding:4px 0 4px 52px}
+  .members.show{display:flex}
+  .member{display:flex;justify-content:space-between;gap:10px;padding:6px 12px;border-radius:7px;background:var(--panel-2);font-size:13px}
+  .member .mn{color:var(--text)}
+  .member .mp{font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .member .mp.z{color:var(--dim)}
+
+  .empty{color:var(--dim);text-align:center;padding:40px 0;font-size:14px}
+
+  /* Toast */
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);font-size:13px;
+    padding:11px 18px;border-radius:10px;opacity:0;pointer-events:none;transition:.25s;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{border-color:color-mix(in srgb,var(--houston) 50%, var(--line))}
+
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);color:var(--dim);font-size:11.5px;line-height:1.7}
+
+  @media(max-width:560px){
+    .podium{grid-template-columns:1fr;gap:8px}
+    .pod.first{order:-1}
+    .lane{grid-template-columns:34px 1fr auto;gap:10px;padding:12px}
+    .lane .oname{font-size:18px}
+    .lane .oscore .pts{font-size:26px}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <h1>March <span class="em">Mayhem</span></h1>
+      <div class="sub">Steady Drip · Live Office Standings</div>
+    </div>
+    <div class="status">
+      <div class="live"><span class="dot" id="dot"></span> <span id="liveTxt">Live</span></div>
+      <div class="updated" id="updated">—</div>
+      <button class="refresh" id="refreshBtn">Refresh</button>
+    </div>
+  </div>
+
+  <div class="sec-head">
+    <h2>Office Race</h2>
+    <span class="note">Total points · all teams</span>
+  </div>
+  <div class="tower" id="tower"></div>
+
+  <div class="tabs">
+    <button class="tab on" data-view="reps" id="tabReps">Reps</button>
+    <button class="tab" data-view="teams" id="tabTeams">Teams</button>
+  </div>
+
+  <div id="repsView">
+    <div class="podium" id="podium"></div>
+    <div class="controls">
+      <input class="search" id="search" type="text" placeholder="Search a rep…" autocomplete="off">
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="list" id="repList"></div>
+  </div>
+
+  <div id="teamsView" style="display:none">
+    <div class="list" id="teamList"></div>
+  </div>
+
+  <footer id="footer"></footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DATA_URL = "https://raw.githubusercontent.com/bychristianhill/march-mayhem-dashboard/main/dashboard-data.json";
+
+const OFFICE_META = {
+  houston:{name:'HOUSTON', color:'#FF4438'},
+  dallas: {name:'DALLAS',  color:'#3B82F6'},
+  austin: {name:'AUSTIN',  color:'#2ED47A'},
+  rltns:  {name:'RLNTLSS', color:'#F4B526'},
+};
+const OFFICE_ORDER = ['houston','dallas','austin','rltns'];
+
+/* ---- Fallback snapshot (so the page always renders; live fetch overrides it) ---- */
+const FALLBACK_DATA = {"generatedAt":"2026-06-17T02:46:40.861Z","dallas":[["Week",1,"","","","","","",""],["","","Self Gen","","With Assist","","As Assist","",""],["","Sales Team 6 ","SRA","CAP","SRA","CAP","SRA","CAP","Total points"],["","Tyler Lange",0,0,0,0,0,0,0],["","Chris Wootton",0,0,0,0,0,0,0],["","Justin Mott",0,0,0,0,0,0,0],["","Stephen Scott",0,0,0,0,0,0,0],["","Felton Byrd",0,0,0,0,0,0,0],["","Total",0,0,0,0,0,0,0],["","","","","","","","",""],["","Spartans","","","","","","",""],["","Bronson Young",0,0,0,0,0,0,0],["","Ahmad Ashour",0,0,0,0,0,0,0],["","Anterion Hicks",0,0,0,0,0,0,0],["","Jordan Clark",0,0,0,0,0,0,0],["","Victor Sandoval",0,0,0,0,0,0,2],["","Total",0,0,0,0,0,0,2],["","","","","","","","",""],["","The Drop 🩸 ","","","","","","",""],["","Jeremy Ibarra",0,0,0,0,0,0,0],["","Keaton Mott",0,0,0,0,0,0,0],["","David Streeter",0,0,0,0,0,0,0],["","Joseph Rowberry",0,0,0,0,0,0,0],["","Benjamin Stearns ",0,0,0,0,0,0,0],["","Total",0,0,0,0,0,0,0],["","","","","","","","",""],["","REIGN","","","","","","",""],["","Alan Frazier",0,0,0,0,0,0,0],["","Eduardo Atayde",0,0,0,0,0,0,0],["","Bryan Cowling",0,0,0,0,0,0,0],["","Nick Soto",0,0,0,0,0,0,0],["","Darnell Bailey ",0,0,0,0,0,0,0],["","Total",0,0,0,0,0,0,0],["","","","","","","","",""],["","Top Tier 🔥","","","","","","",""],["","Gran Crum",0,0,0,0,0,0,0],["","Kalin Reeves",0,0,0,0,0,0,0],["","Shane Neto",0,0,0,0,0,0,0],["","Jonathan Bell",0,0,0,0,0,0,0],["","Freddie Damper",0,0,0,0,0,0,0],["","Total",0,0,0,0,0,0,0],["","","","","","","","",""],["","GS-SOG","","","","","","",""],["","Carter Glass",0,0,0,0,0,0,0],["","Jonah Sullivan",0,0,0,0,0,0,2],["","Alex Hepworth",0,0,0,0,0,0,0],["","Ella Glass",0,0,0,0,0,0,0],["","John Horowitz",0,0,0,0,0,0,0],["","Total",0,0,0,0,0,0,2],["","","","","","","","",""],["","Little League ","","","","","","",""],["","Carson Torre",0,0,0,0,0,0,0],["","Nicholas Copenbarger",0,0,0,0,0,0,0],["","Keshawn ledet",0,0,0,0,0,0,0],["","Kevin L",0,0,0,0,0,0,0],["","Sami Naqvi",0,0,0,0,0,0,0],["","Total",0,0,0,0,0,0,0],["","","","","","","","",""],["","High output, No pull out ","","","","","","",""],["","Brianna Carruba",0,0,0,0,0,0,0],["","Miggz Melgoza",0,0,0,0,0,0,0],["","John Cabel",0,0,0,0,0,0,0],["","Courtney Poole",0,0,0,0,0,0,0],["","Dane Matarese",0,0,0,0,0,0,0],["","Total",0,0,0,0,0,0,0],["","","","","","","","",""],["","Core","","","","","","",""],["","Katie Boyd",0,0,0,0,0,0,0],["","Collin Carter",0,0,0,0,0,0,0],["","Jay Baumann",0,0,0,0,0,0,0],["","Justin Kerby",0,0,0,0,0,0,0],["","Simone Paryente",0,0,0,0,0,0,0],["","Total",0,0,0,0,0,0,0],["","","","","","","","",""],["","Cali Dreamin","","","","","","",""],["","David Guzman",1,0,0,0,0,0,2],["","Henry Lozano",0,0,0,0,0,0,0],["","Fernando Axume",0,0,0,0,0,0,0],["","Sean Blondin",0,0,0,0,0,0,0],["","David Andrade",0,0,0,0,0,0,0],["","Total",1,0,0,0,0,0,2],["","","","","","","","",""],["","TEAM","","","","","","",""],["","Robert Alvarez",0,0,0,0,0,0,0],["","Kani Ware",0,0,0,0,0,0,0],["","Joshua Allen",0,0,0,0,0,0,2],["","Total",0,0,0,0,0,0,2],["","","","","","","","",""],["","","","","","","","Total Dallas",8]],"austin":[["Week",4,"","","","","","",""],["","","Self Gen","","With Assist","","As Assist","",""],["","TEAM","SRA","CAP","SRA","CAP","SRA","CAP","Total points"],["","Angelo Talamantes",1,1,0,0,0,1,6.5],["","James Brindley",0,1,0,0,0,0,3],["","Ezekiel Peirce",0,0,0,0,0,0,0],["","Charles Burns",2,2,0,0,0,0,10],["","Roderic Hightower Jr",0,0,0,1,0,0,1.5],["","Total",3,4,0,1,0,1,21],["","","","","","","","",""],["","TEAM","","","","","","",""],["","Bobby Kumparak",1,1,0,0,1,0,6],["","JaMael Windom",0,1,2,0,0,0,5],["","Tyler Parker",0,0,0,0,0,0,0],["","Colin Wallace",0,0,1,0,0,0,1],["","Benjamin Pucel",0,0,0,0,0,0,0],["","Total",1,2,3,0,1,0,12],["","","","","","","","",""],["","TEAM","","","","","","",""],["","Rusbel Gonzalez ",0,0,0,0,0,0,0],["","Darius Martinez",1,1,0,0,0,0,7],["","Kasey Lee ",0,0,0,0,0,0,0],["","Elijah Stanley ",0,0,0,0,0,0,0],["","Giovanni Favarato",1,0,0,0,0,0,2],["","Total",2,1,0,0,0,0,9],["","","","","","","","",""],["","TEAM","","","","","","",""],["","Alec Hersh",0,0,0,0,0,0,0],["","Ryan Curtis",0,0,0,0,0,0,0],["","Jake Stinson",0,1,0,0,0,0,3],["","Jordyn Arnette",0,0,1,1,0,1,4],["","Jarod Guyumjian",1,0,0,0,0,0,2],["","Total",1,1,1,1,0,1,9],["","","","","","","","",""],["","TEAM (2 Tone Rangers)","","","","","","",""],["","Amaziah McCall",2,1,1,0,1,0,9],["","Dakota LaBounty",2,2,0,0,0,0,10],["","Antonio Martinez",1,0,1,0,1,0,4],["","KyVon Raymond",0,0,0,0,0,0,0],["","Michael Fanuzzi",0,0,0,0,0,0,0],["","Total",5,3,2,0,2,0,23],["","","","","","","","",""],["","TEAM","","","","","","",""],["","Isaiah Boone",1,0,0,0,0,0,2],["","Lucian Alverez",0,0,0,0,0,0,0],["","Ismo Gonzalez III",0,0,1,0,0,0,1],["","Rolando Garcia",1,1,0,0,0,0,7],["","Seth Ojeda",0,0,0,0,0,0,0],["","Total",2,1,1,0,0,0,10],["","","","","","","","",""],["","TEAM","","","","","","",""],["","Travis Severs",1,0,0,0,0,0,2],["","Matt Taylor",0,0,0,0,0,0,0],["","Colton Baird ",0,0,0,0,0,0,0],["","Amethyst Pohlman",0,0,0,0,0,0,0],["","Rachel Renko ",0,0,0,0,0,0,0],["","Total",1,0,0,0,0,0,2],["","","","","","","","",""],["","","","","","","","Total",86]],"houston":[["Week",5,"","","","","","","","","","","","","",""],["","","Self Gen","","With Assist","","As Assist","","","",1,2,3,4,5,"Total"],["","AVALANCHE RYDERS","SRA","CAP","SRA","CAP","SRA","CAP","Total points","","","","","","",""],["","Wyatt Strieder",0,0,0,0,0,0,0,"","","","","","",""],["","Markel Schaffer",0,0,0,0,0,0,0,"","","","","","",""],["","Jay Trevino",0,0,0,0,0,0,0,"","","","","","",""],["","Jose Sanchez",1,0,0,0,0,0,2,"","","","","","",""],["","Ugochukwu Nkwocha",0,0,0,0,0,0,0,"","","","","","",""],["","Total",1,0,0,0,0,0,2,"AVALANCHE RYDERS",4,1,4,1,2,12],["","","","","","","","","","","","","","","",""],["","KILOWATT KARTEL","","","","","","","","","","","","","",""],["","Maverik Dobson",0,0,0,0,2,0,2,"","","","","","",""],["","Chase Crupi",0,0,0,0,1,0,1,"","","","","","",""],["","Jason Richburg",0,0,0,0,2,1,3.5,"","","","","","",""],["","Matthew Hudgens",0,0,0,0,0,0,0,"","","","","","",""],["","Jayden Nelson",0,0,0,0,0,0,0,"","","","","","",""],["","Total",0,0,0,0,5,1,6.5,"KILOWATT KARTEL",4,14,18,25,6.5,67.5],["","","","","","","","","","","","","","","",""],["","KILOWATT KINGS","","","","","","","","","","","","","",""],["","Carlos Montiel",0,1,0,0,0,0,3,"","","","","","",""],["","Jack Harvey",2,3,0,0,0,0,13,"","","","","","",""],["","Shelton Cox",0,1,0,0,1,1,5.5,"","","","","","",""],["","Jose Paramo",0,0,0,0,0,0,0,"","","","","","",""],["","Devin Grendahl",0,0,0,0,0,0,0,"","","","","","",""],["","Total",2,5,0,0,1,1,21.5,"KILOWATT KINGS",10,13,17,22.5,21.5,84],["","","","","","","","","","","","","","","",""],["","DOMINATE.","","","","","","","","","","","","","",""],["","Xavier Thibodeaux",2,1,0,0,0,0,7,"","","","","","",""],["","Brandon Seidel",2,2,2,2,0,0,17,"","","","","","",""],["","Maximiano Villarreal",1,1,0,0,0,0,5,"","","","","","",""],["","Johnathan Ondieki",1,0,0,0,0,0,2,"","","","","","",""],["","Rocco Kelly",0,0,0,0,0,0,0,"","","","","","",""],["","Total",6,4,2,2,0,0,31,"DOMINATE.",16,24,25,20.5,31,116.5],["","","","","","","","","","","","","","","",""],["","NIGHT RIDERS","","","","","","","","","","","","","",""],["","Ross Block",4,1,0,0,2,2,16,"","","","","","",""],["","Patrick Jensen",0,0,0,0,0,0,0,"","","","","","",""],["","Collin Crook",1,0,0,0,0,0,2,"","","","","","",""],["","Tim Lazarus",0,0,0,0,0,0,0,"","","","","","",""],["","Uziel Buentello Almeida",1,0,0,0,0,0,2,"","","","","","",""],["","Total",6,1,0,0,2,2,20,"NIGHT RIDERS",16.5,18,12.5,3,20,70],["","","","","","","","","","","","","","","",""],["","OTG'S","","","","","","","","","","","","","",""],["","Richard Tripp",1,2,0,0,0,0,8,"","","","","","",""],["","Dustin Dion",0,1,0,0,0,0,3,"","","","","","",""],["","Oscar Gonzalez",0,1,0,0,0,0,3,"","","","","","",""],["","Nelson Uzoaru",1,1,0,0,0,0,5,"","","","","","",""],["","Meonnie Williams",0,0,0,0,0,0,0,"","","","","","",""],["","Total",2,5,0,0,0,0,19,"OTG'S",12.5,16,12.5,14,19,74],["","","","","","","","","","","","","","","",""],["","BAMM FAM","","","","","","","","","","","","","",""],["","Trey Baker",0,0,0,0,0,0,0,"","","","","","",""],["","Kempton Robinson",0,0,1,1,0,0,2.5,"","","","","","",""],["","Jabin Abrarpour",0,0,0,0,0,0,0,"","","","","","",""],["","Spencer Gohmert",0,0,0,0,0,0,0,"","","","","","",""],["","Yousuf Khan",0,0,0,0,0,0,0,"","","","","","",""],["","Total",0,0,1,1,0,0,2.5,"BAMM FAM",2,6.5,7,5,2.5,23],["","","","","","","","","","","","","","","",""],["","CINCO KILLERS","","","","","","","","","","","","","",""],["","Byron Bell",0,0,0,0,0,0,0,"","","","","","",""],["","Wang Xiong",0,0,0,0,1,0,1,"","","","","","",""],["","Anita Urun",0,0,0,0,0,0,0,"","","","","","",""],["","Zane Jacobsen",0,0,3,0,0,0,3,"","","","","","",""],["","Jordan Maya",0,0,0,0,0,0,2,"","","","","","",""],["","Total",0,0,3,0,1,0,6,"CINCO KILLERS",13,9.5,9,9,6,46.5],["","","","","","","","","","","","","","","",""],["","","","","","","","","","","","","","","",""],["","","","","","","","Total",108.5,"","","","","","",""]],"rltns":[["Week",5,"","","","","","","","","","","","","",""],["","","Self Gen","","With Assist","","As Assist","","","",1,2,3,4,5,"Total"],["","OTDS","SRA","CAP","SRA","CAP","SRA","CAP","Total points","","","","","","",""],["","Josiah Padilla",0,0,0,0,1,1,2.5,"","","","","","",""],["","Cannon Hansen",0,0,0,1,0,0,1.5,"","","","","","",""],["","Foster Hord",0,0,0,0,0,0,0,"","","","","","",""],["","Luis Ventura",0,0,0,0,4,1,6.5,"","","","","","",""],["","Noah Padilla",1,1,0,0,0,0,6,"","","","","","",""],["","Total",1,1,0,1,5,2,16.5,"OTDS",10,20.5,20.5,12.5,16.5,80],["","","","","","","","","","","","","","","",""],["","Taha (The Guardians of the grid)","","","","","","","","","","","","","",""],["","Derek Williams",0,0,0,0,0,0,0,"","","","","","",""],["","Johan Reyes",0,0,3,0,0,0,4,"","","","","","",""],["","Dorina Waiters",0,0,0,0,0,0,0,"","","","","","",""],["","Taha Nizam",0,0,0,0,0,0,0,"","","","","","",""],["","","","","","","","","","","","","","","",""],["","Total",0,0,3,0,0,0,4,"Taha (The Guardians of the grid)",5,3,10.5,7.5,4,30],["","","","","","","","","","","","","","","",""],["","ENG UNIT ","","","","","","","","","","","","","",""],["","Jose Loza",0,0,0,0,0,0,0,"","","","","","",""],["","Giovanni Rodriguez",0,0,0,0,0,0,0,"","","","","","",""],["","Jonny Salazar",0,0,0,0,0,0,0,"","","","","","",""],["","Ebony Harrison",0,0,0,0,0,0,0,"","","","","","",""],["","Noah Padilla",1,1,0,0,0,0,5,"","","","","","",""],["","Total",1,1,0,0,0,0,5,"ENG UNIT ",5,6.5,8,0,5,24.5],["","","","","","","","","","","","","","","",""],["","Karleigh (buzz society)","","","","","","","","","","","","","",""],["","Michael Cepek",0,0,1,1,0,0,2.5,"","","","","","",""],["","Alejandro Bonilla",0,0,0,0,0,0,1,"","","","","","",""],["","Mike Linskey",1,1,0,0,0,0,5,"","","","","","",""],["","Mark Show",0,0,0,0,0,0,0,"","","","","","",""],["","Karleigh Nashke",0,0,0,0,0,0,1,"","","","","","",""],["","Total",1,1,1,1,0,0,9.5,"Karleigh (buzz society)",13,10,6,8,9.5,46.5],["","","","","","","","","","","","","","","",""],["","","","","","","","Total",35,"","","","","","",""]]};
+
+/* ---------- Parsing ---------- */
+function num(v){ const n = Number(v); return isNaN(n) ? 0 : n; }
+function lastName(full){ const p = (full||'').trim().split(/\s+/); return p[p.length-1] || (full||'').trim(); }
+function cleanTeamName(raw){
+  raw = (raw||'').toString().trim();
+  const m = raw.match(/\(([^)]+)\)/);
+  if(m) return m[1].trim();
+  if(/^team$/i.test(raw)) return null;
+  return raw;
+}
+
+function parseOffice(rows, key){
+  const teams = []; let cur = null;
+  for(const row of (rows||[])){
+    if(!row) continue;
+    const c0 = (row[0]||'').toString().trim();
+    if(/^week$/i.test(c0)) continue;
+    const label = (row[1]||'').toString().trim();
+    if(!label) continue;
+    if(label.toLowerCase() === 'total'){ if(cur){ teams.push(cur); cur = null; } continue; }
+    const isRep = (typeof row[8] === 'number');
+    if(isRep){
+      if(!cur) cur = { name:null, reps:[] };
+      const rep = {
+        name: label, office: key,
+        selfSRA:num(row[2]), selfCAP:num(row[3]),
+        waSRA:num(row[4]),  waCAP:num(row[5]),
+        aaSRA:num(row[6]),  aaCAP:num(row[7]),
+        points:num(row[8])
+      };
+      rep.sra = rep.selfSRA + rep.waSRA + rep.aaSRA;
+      rep.cap = rep.selfCAP + rep.waCAP + rep.aaCAP;
+      cur.reps.push(rep);
+      if(cur.name === null) cur.name = lastName(label) + ' Crew';
+    } else {
+      if(cur){ teams.push(cur); cur = null; }
+      cur = { name: cleanTeamName(label), reps: [] };
+    }
+  }
+  if(cur) teams.push(cur);
+  for(const t of teams){
+    if(!t.name) t.name = t.reps.length ? lastName(t.reps[0].name) + ' Crew' : 'Team';
+    t.office = key;
+    t.points = t.reps.reduce((s,r)=>s+r.points,0);
+    t.sra    = t.reps.reduce((s,r)=>s+r.sra,0);
+    t.cap    = t.reps.reduce((s,r)=>s+r.cap,0);
+  }
+  return teams.filter(t => t.reps.length > 0);
+}
+
+function buildModel(data){
+  const offices = [];
+  for(const key of OFFICE_ORDER){
+    const teams = parseOffice(data[key], key);
+    const reps  = teams.flatMap(t => t.reps.map(r => ({...r, team:t.name})));
+    offices.push({
+      key, name:OFFICE_META[key].name, color:OFFICE_META[key].color,
+      teams, reps,
+      points: teams.reduce((s,t)=>s+t.points,0),
+      sra:    teams.reduce((s,t)=>s+t.sra,0),
+      cap:    teams.reduce((s,t)=>s+t.cap,0),
+    });
+  }
+  const allReps  = offices.flatMap(o => o.reps.map(r => ({...r, color:o.color, officeName:o.name})));
+  const allTeams = offices.flatMap(o => o.teams.map(t => ({...t, color:o.color, officeName:o.name})));
+  return { offices, allReps, allTeams, generatedAt:data.generatedAt };
+}
+
+/* ---------- Formatting ---------- */
+function fmt(n){ n = Number(n)||0; return Number.isInteger(n) ? String(n) : String(Math.round(n*10)/10); }
+function relTime(iso){
+  if(!iso) return '—';
+  const d = new Date(iso); if(isNaN(d)) return '—';
+  const s = Math.round((Date.now()-d)/1000);
+  if(s < 60) return 'updated just now';
+  if(s < 3600) return 'updated ' + Math.round(s/60) + ' min ago';
+  if(s < 86400) return 'updated ' + Math.round(s/3600) + ' hr ago';
+  return 'updated ' + d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+
+/* ---------- Rendering ---------- */
+let MODEL = null;
+let activeOffice = 'all';
+let activeView = 'reps';
+let searchTerm = '';
+
+function renderTower(){
+  const offices = [...MODEL.offices].sort((a,b)=>b.points-a.points);
+  const max = Math.max(1, ...offices.map(o=>o.points));
+  document.getElementById('tower').innerHTML = offices.map((o,i)=>`
+    <div class="lane ${i===0?'p1':''}" style="--c:${o.color}">
+      <div class="rail"></div>
+      <div class="fill" data-w="${Math.max(4,(o.points/max)*100)}"></div>
+      <div class="pos">${i+1}</div>
+      <div class="body">
+        <div class="oname">${o.name}</div>
+        <div class="ometa">${o.teams.length} teams · ${o.reps.length} reps · ${fmt(o.sra)} SRA / ${fmt(o.cap)} CAP</div>
+      </div>
+      <div class="oscore">
+        <div class="pts">${fmt(o.points)}</div>
+        <div class="lbl">points</div>
+      </div>
+    </div>`).join('');
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('#tower .fill').forEach(f=> f.style.width = f.dataset.w + '%');
+  });
+}
+
+function renderChips(){
+  const chips = [{k:'all',n:'All',c:null}, ...OFFICE_ORDER.map(k=>({k,n:OFFICE_META[k].name,c:OFFICE_META[k].color}))];
+  document.getElementById('chips').innerHTML = chips.map(c=>`
+    <button class="chip ${activeOffice===c.k?'on':''}" data-office="${c.k}">
+      ${c.c?`<span class="pd" style="background:${c.c}"></span>`:''}${c.n}
+    </button>`).join('');
+}
+
+function renderPodium(){
+  const top = [...MODEL.allReps].filter(r=>r.points>0).sort((a,b)=>b.points-a.points).slice(0,3);
+  if(top.length < 3){ document.getElementById('podium').style.display='none'; return; }
+  document.getElementById('podium').style.display='grid';
+  const order = [top[1], top[0], top[2]]; // 2nd, 1st, 3rd
+  const crowns = ['2nd','1st','3rd'];
+  document.getElementById('podium').innerHTML = order.map((r,i)=>`
+    <div class="pod ${i===1?'first':''}" style="--c:${r.color}">
+      <div class="crown">${crowns[i]}</div>
+      <div class="nm">${r.name}</div>
+      <div class="tm">${r.team} · ${r.officeName}</div>
+      <div class="pts">${fmt(r.points)}<small>PTS</small></div>
+      <div class="rail"></div>
+    </div>`).join('');
+}
+
+function renderReps(){
+  let reps = [...MODEL.allReps];
+  if(activeOffice!=='all') reps = reps.filter(r=>r.office===activeOffice);
+  if(searchTerm) reps = reps.filter(r=>r.name.toLowerCase().includes(searchTerm));
+  reps.sort((a,b)=> b.points-a.points || b.sra-a.sra || a.name.localeCompare(b.name));
+  const el = document.getElementById('repList');
+  if(!reps.length){ el.innerHTML = `<div class="empty">No reps match that.</div>`; return; }
+  el.innerHTML = reps.map((r,i)=>`
+    <div class="row" style="--c:${r.color}">
+      <div class="rail"></div>
+      <div class="rk">${i+1}</div>
+      <div class="info">
+        <div class="nm">${r.name}</div>
+        <div class="meta"><span class="od"></span>${r.team} · ${r.officeName}
+          <span class="deals">${fmt(r.sra)} SRA · ${fmt(r.cap)} CAP</span>
+        </div>
+      </div>
+      <div class="sc"><span class="pts">${fmt(r.points)}</span><span class="u">pts</span></div>
+    </div>`).join('');
+}
+
+function renderTeams(){
+  const teams = [...MODEL.allTeams].sort((a,b)=> b.points-a.points || a.name.localeCompare(b.name));
+  document.getElementById('teamList').innerHTML = teams.map((t,i)=>{
+    const members = [...t.reps].sort((a,b)=>b.points-a.points).map(r=>`
+      <div class="member"><span class="mn">${r.name}</span><span class="mp ${r.points?'':'z'}">${fmt(r.points)}</span></div>`).join('');
+    return `
+    <div class="row trow" style="--c:${t.color}" data-team="${i}">
+      <div class="rail"></div>
+      <div class="rk">${i+1}</div>
+      <div class="info">
+        <div class="nm">${t.name}<span class="car">▶</span></div>
+        <div class="meta"><span class="od"></span>${t.officeName} · ${t.reps.length} reps
+          <span class="deals">${fmt(t.sra)} SRA · ${fmt(t.cap)} CAP</span>
+        </div>
+      </div>
+      <div class="sc"><span class="pts">${fmt(t.points)}</span><span class="u">pts</span></div>
+    </div>
+    <div class="members" data-members="${i}">${members}</div>`;
+  }).join('');
+}
+
+function renderFooter(){
+  document.getElementById('footer').innerHTML =
+    `Scoring rolls up from each rep's points → team → office, so every level reconciles.<br>`+
+    `Note: offices are logging different weeks right now (Dallas wk 1, Austin wk 4, Houston &amp; RLNTLSS wk 5), so totals reflect each office's latest entered week. Reads live from the team sheet.`;
+}
+
+function renderAll(){
+  renderTower(); renderChips(); renderPodium();
+  renderReps(); renderTeams(); renderFooter();
+  document.getElementById('updated').textContent = relTime(MODEL.generatedAt);
+  const stale = MODEL.generatedAt && (Date.now()-new Date(MODEL.generatedAt) > 36*3600*1000);
+  document.getElementById('dot').classList.toggle('stale', !!stale);
+  document.getElementById('liveTxt').textContent = stale ? 'Snapshot' : 'Live';
+}
+
+/* ---------- Data load ---------- */
+let toastTimer = null;
+function toast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.toggle('err', !!isErr); t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+async function loadData(announce){
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true; btn.textContent = 'Refreshing…';
+  try{
+    const res = await fetch(DATA_URL, {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    MODEL = buildModel(data);
+    renderAll();
+    if(announce) toast('Standings updated');
+  }catch(e){
+    if(!MODEL){ MODEL = buildModel(FALLBACK_DATA); renderAll(); }
+    if(announce) toast('Showing last snapshot — live feed unreachable', true);
+  }finally{
+    btn.disabled = false; btn.textContent = 'Refresh';
+  }
+}
+
+/* ---------- Events ---------- */
+document.getElementById('refreshBtn').addEventListener('click', ()=>loadData(true));
+document.getElementById('search').addEventListener('input', e=>{ searchTerm = e.target.value.trim().toLowerCase(); renderReps(); });
+document.getElementById('chips').addEventListener('click', e=>{
+  const b = e.target.closest('.chip'); if(!b) return;
+  activeOffice = b.dataset.office; renderChips(); renderReps();
+});
+document.querySelectorAll('.tab').forEach(tab=>tab.addEventListener('click', ()=>{
+  activeView = tab.dataset.view;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t===tab));
+  document.getElementById('repsView').style.display  = activeView==='reps' ? '' : 'none';
+  document.getElementById('teamsView').style.display = activeView==='teams' ? '' : 'none';
+}));
+document.getElementById('teamList').addEventListener('click', e=>{
+  const row = e.target.closest('.trow'); if(!row) return;
+  row.classList.toggle('open');
+  document.querySelector(`[data-members="${row.dataset.team}"]`).classList.toggle('show');
+});
+
+/* Initial render from fallback, then live fetch; auto-refresh every 2 min */
+MODEL = buildModel(FALLBACK_DATA);
+renderAll();
+loadData(false);
+setInterval(()=>loadData(false), 120000);
+</script>
+</body>
+</html>
